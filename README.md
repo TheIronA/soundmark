@@ -1,109 +1,78 @@
-<a href="https://demo-nextjs-with-supabase.vercel.app/">
-  <img alt="Next.js and Supabase Starter Kit - the fastest way to build apps with Next.js and Supabase" src="https://demo-nextjs-with-supabase.vercel.app/opengraph-image.png">
-  <h1 align="center">Next.js and Supabase Starter Kit</h1>
-</a>
+# Soundmark
 
-<p align="center">
- The fastest way to build apps with Next.js and Supabase
-</p>
+A personal geotagged media archive built around a single simple unit: a
+**moment** — one photo paired with a short sound, tied to a location and a
+time. Capture is one gesture (photo → record sound → save); browsing is
+tap-to-hear (tap a photo to play its sound inline, like a living photo).
 
-<p align="center">
-  <a href="#features"><strong>Features</strong></a> ·
-  <a href="#demo"><strong>Demo</strong></a> ·
-  <a href="#deploy-to-vercel"><strong>Deploy to Vercel</strong></a> ·
-  <a href="#clone-and-run-locally"><strong>Clone and run locally</strong></a> ·
-  <a href="#feedback-and-issues"><strong>Feedback and issues</strong></a>
-  <a href="#more-supabase-examples"><strong>More Examples</strong></a>
-</p>
-<br/>
+Built on the [with-supabase](https://github.com/vercel/next.js/tree/canary/examples/with-supabase)
+Next.js starter: App Router, TypeScript, Tailwind, shadcn/ui, Supabase for
+auth + database + storage, MapLibre GL for the map.
 
-## Features
+## Core interaction
 
-- Works across the entire [Next.js](https://nextjs.org) stack
-  - App Router
-  - Pages Router
-  - Proxy
-  - Client
-  - Server
-  - It just works!
-- supabase-ssr. A package to configure Supabase Auth to use cookies
-- Password-based authentication block installed via the [Supabase UI Library](https://supabase.com/ui/docs/nextjs/password-based-auth)
-- Styling with [Tailwind CSS](https://tailwindcss.com)
-- Components with [shadcn/ui](https://ui.shadcn.com/)
-- Optional deployment with [Supabase Vercel Integration and Vercel deploy](#deploy-your-own)
-  - Environment variables automatically assigned to Vercel project
+- **Capture** (`/app/new`): pick or take a photo → you're immediately prompted
+  to record a short sound → save. Title/note are optional and secondary.
+  Location and time are read from the photo's EXIF when available, with live
+  geolocation as a fallback.
+- **Tap-to-hear**: on the timeline (`/app/timeline`) and map (`/app/map`),
+  tapping a photo plays its attached sound inline — no navigation.
+- **A year ago today**: the home screen surfaces any moment from this calendar
+  day in a past year, queried on load (the retention hook — no scheduler yet).
 
-## Demo
+## Data model
 
-You can view a fully working demo at [demo-nextjs-with-supabase.vercel.app](https://demo-nextjs-with-supabase.vercel.app/).
+Two tables (see [`supabase/migrations/`](supabase/migrations)):
 
-## Deploy to Vercel
+- **`entries`** — the place-moment: `title`, `note`, `lat`, `lng`,
+  `place_label`, `recorded_at`, `created_at`.
+- **`media`** — items attached to an entry: `media_type` (`audio` | `photo`),
+  `storage_path`, `thumbnail_path`, `duration_sec`, `size_bytes`.
 
-Vercel deployment will guide you through creating a Supabase account and project.
+The schema is one-entry-to-many-media (flexible for the future), but the
+product currently treats a moment as **exactly one photo + one sound**.
 
-After installation of the Supabase integration, all relevant environment variables will be assigned to the project so the deployment is fully functioning.
+Row Level Security scopes every row (and every storage object) to its owner.
 
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fvercel%2Fnext.js%2Ftree%2Fcanary%2Fexamples%2Fwith-supabase&project-name=nextjs-with-supabase&repository-name=nextjs-with-supabase&demo-title=nextjs-with-supabase&demo-description=This+starter+configures+Supabase+Auth+to+use+cookies%2C+making+the+user%27s+session+available+throughout+the+entire+Next.js+app+-+Client+Components%2C+Server+Components%2C+Route+Handlers%2C+Server+Actions+and+Middleware.&demo-url=https%3A%2F%2Fdemo-nextjs-with-supabase.vercel.app%2F&external-id=https%3A%2F%2Fgithub.com%2Fvercel%2Fnext.js%2Ftree%2Fcanary%2Fexamples%2Fwith-supabase&demo-image=https%3A%2F%2Fdemo-nextjs-with-supabase.vercel.app%2Fopengraph-image.png)
+### Storage is backend-agnostic
 
-The above will also clone the Starter kit to your GitHub, you can clone that locally and develop locally.
+`media.storage_path` holds a plain object path, **not** a Supabase URL. All
+knowledge that media lives in Supabase Storage is isolated in
+[`lib/storage.ts`](lib/storage.ts). Swapping the backend later (Drive, S3, …)
+means reimplementing that module only — no schema change.
 
-If you wish to just develop locally and not deploy to Vercel, [follow the steps below](#clone-and-run-locally).
+## Setup
 
-## Clone and run locally
+1. **Create a Supabase project** and copy its API details into `.env.local`
+   (see [`.env.example`](.env.example)):
 
-1. You'll first need a Supabase project which can be made [via the Supabase dashboard](https://database.new)
-
-2. Create a Next.js app using the Supabase Starter template npx command
-
-   ```bash
-   npx create-next-app --example with-supabase with-supabase-app
+   ```
+   NEXT_PUBLIC_SUPABASE_URL=…
+   NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=…
    ```
 
-   ```bash
-   yarn create next-app --example with-supabase with-supabase-app
-   ```
+2. **Apply the schema.** Run the SQL in [`supabase/migrations/`](supabase/migrations)
+   in order — via the Supabase SQL editor, or `supabase db push` with the
+   Supabase CLI. This creates the tables, RLS policies, and the private
+   `media` storage bucket.
+
+3. **Install and run:**
 
    ```bash
-   pnpm create next-app --example with-supabase with-supabase-app
-   ```
-
-3. Use `cd` to change into the app's directory
-
-   ```bash
-   cd with-supabase-app
-   ```
-
-4. Rename `.env.example` to `.env.local` and update the following:
-
-  ```env
-  NEXT_PUBLIC_SUPABASE_URL=[INSERT SUPABASE PROJECT URL]
-  NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=[INSERT SUPABASE PROJECT API PUBLISHABLE OR ANON KEY]
-  ```
-  > [!NOTE]
-  > This example uses `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, which refers to Supabase's new **publishable** key format.
-  > Both legacy **anon** keys and new **publishable** keys can be used with this variable name during the transition period. Supabase's dashboard may show `NEXT_PUBLIC_SUPABASE_ANON_KEY`; its value can be used in this example.
-  > See the [full announcement](https://github.com/orgs/supabase/discussions/29260) for more information.
-
-  Both `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` can be found in [your Supabase project's API settings](https://supabase.com/dashboard/project/_?showConnect=true)
-
-5. You can now run the Next.js local development server:
-
-   ```bash
+   npm install
    npm run dev
    ```
 
-   The starter kit should now be running on [localhost:3000](http://localhost:3000/).
+### Dev-only auth bypass
 
-6. This template comes with the default shadcn/ui style initialized. If you instead want other ui.shadcn styles, delete `components.json` and [re-install shadcn/ui](https://ui.shadcn.com/docs/installation/next)
+To preview the UI without a live Supabase session, set
+`NEXT_PUBLIC_DEV_BYPASS_AUTH=true` in `.env.local`. This skips the auth guard
+and renders the app shell with empty data. **Never enable this in production** —
+it disables the auth redirect (data access still requires a real session and
+RLS).
 
-> Check out [the docs for Local Development](https://supabase.com/docs/guides/getting-started/local-development) to also run Supabase locally.
+## Scope
 
-## Feedback and issues
-
-Please file feedback and issues over on the [Supabase GitHub org](https://github.com/supabase/supabase/issues/new/choose).
-
-## More Supabase examples
-
-- [Next.js Subscription Payments Starter](https://github.com/vercel/nextjs-subscription-payments)
-- [Cookie-based Auth and the Next.js 13 App Router (free course)](https://youtube.com/playlist?list=PL5S4mPUpp4OtMhpnp93EFSo42iQ40XjbF)
-- [Supabase Auth and the Next.js App Router](https://github.com/supabase/supabase/tree/master/examples/auth/nextjs)
+In: auth, capture, map, timeline, playback, "a year ago today".
+Out for now: video, Drive/BYOS storage, sharing, transcription, notifications,
+multi-device sync, payments.

@@ -10,6 +10,17 @@ export default {
   ],
   theme: {
     extend: {
+      fontFamily: {
+        sans: ["var(--font-sans)", "ui-sans-serif", "system-ui", "sans-serif"],
+        display: [
+          "var(--font-display)",
+          "var(--font-sans)",
+          "ui-sans-serif",
+          "system-ui",
+          "sans-serif",
+        ],
+        mono: ["var(--font-mono)", "ui-monospace", "monospace"],
+      },
       colors: {
         background: "hsl(var(--background))",
         foreground: "hsl(var(--foreground))",
@@ -41,6 +52,8 @@ export default {
           DEFAULT: "hsl(var(--destructive))",
           foreground: "hsl(var(--destructive-foreground))",
         },
+        success: "hsl(var(--success))",
+        warning: "hsl(var(--warning))",
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
         ring: "hsl(var(--ring))",
@@ -56,6 +69,17 @@ export default {
         lg: "var(--radius)",
         md: "calc(var(--radius) - 2px)",
         sm: "calc(var(--radius) - 4px)",
+        neo: "0.25rem",
+      },
+      borderWidth: {
+        "3": "3px",
+      },
+      boxShadow: {
+        // Hard-offset neo-brutalist shadows (no blur). Tint flips in dark mode
+        // via the --neo-shadow HSL variable set in globals.css.
+        "neo-sm": "0.25rem 0.25rem 0 0 hsl(var(--neo-shadow) / 0.1)",
+        neo: "0.5rem 0.5rem 0 0 hsl(var(--neo-shadow) / 0.1)",
+        "neo-lg": "0.75rem 0.75rem 0 0 hsl(var(--neo-shadow) / 0.1)",
       },
     },
   },

@@ -1,6 +1,6 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
-import { hasEnvVars } from "../utils";
+import { hasEnvVars, bypassAuth } from "../utils";
 
 export async function updateSession(request: NextRequest) {
   let supabaseResponse = NextResponse.next({
@@ -10,6 +10,11 @@ export async function updateSession(request: NextRequest) {
   // If the env vars are not set, skip proxy check. You can remove this
   // once you setup the project.
   if (!hasEnvVars) {
+    return supabaseResponse;
+  }
+
+  // Dev-only bypass so the app is usable without a real Supabase project.
+  if (bypassAuth) {
     return supabaseResponse;
   }
 

@@ -3,58 +3,88 @@
 @tailwind utilities;
 
 @layer base {
+  /*
+   * Neo-brutalist "Soundmark" palette (ported from midpoint-maps).
+   * Colors are stored as space-separated HSL triplets so shadcn's
+   * hsl(var(--x)) wrappers in tailwind.config.ts resolve correctly.
+   *
+   *   #0F172A slate-900   222 47% 11%   primary / text
+   *   #1E293B slate-800   217 33% 17%   secondary surface (dark)
+   *   #F8FAFC slate-50    210 40% 98%   background
+   *   #F1F5F9 slate-100   210 40% 96%   muted / border-light
+   *   #3B82F6 blue-500    217 91% 60%   accent
+   *   #60A5FA blue-400    213 94% 68%   accent-light (dark accent)
+   *   #2563EB blue-600    221 83% 53%   accent-dark
+   *   #475569 slate-600   215 25% 27%   text-secondary
+   *   #64748B slate-500   215 16% 47%   text-tertiary / muted-foreground
+   *   #E2E8F0 slate-200   214 32% 91%   border
+   *   #10B981 emerald     160 84% 39%   success
+   *   #F59E0B amber        38 92% 50%   warning
+   *   #EF4444 red          0 84% 60%   error / destructive
+   */
   :root {
-    --background: 0 0% 100%;
-    --foreground: 0 0% 3.9%;
+    --background: 210 40% 98%;
+    --foreground: 222 47% 11%;
     --card: 0 0% 100%;
-    --card-foreground: 0 0% 3.9%;
+    --card-foreground: 222 47% 11%;
     --popover: 0 0% 100%;
-    --popover-foreground: 0 0% 3.9%;
-    --primary: 0 0% 9%;
-    --primary-foreground: 0 0% 98%;
-    --secondary: 0 0% 96.1%;
-    --secondary-foreground: 0 0% 9%;
-    --muted: 0 0% 96.1%;
-    --muted-foreground: 0 0% 45.1%;
-    --accent: 0 0% 96.1%;
-    --accent-foreground: 0 0% 9%;
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 0 0% 89.8%;
-    --input: 0 0% 89.8%;
-    --ring: 0 0% 3.9%;
-    --chart-1: 12 76% 61%;
-    --chart-2: 173 58% 39%;
-    --chart-3: 197 37% 24%;
-    --chart-4: 43 74% 66%;
-    --chart-5: 27 87% 67%;
-    --radius: 0.5rem;
+    --popover-foreground: 222 47% 11%;
+    --primary: 222 47% 11%;
+    --primary-foreground: 210 40% 98%;
+    --secondary: 210 40% 96%;
+    --secondary-foreground: 215 25% 27%;
+    --muted: 210 40% 96%;
+    --muted-foreground: 215 16% 47%;
+    --accent: 217 91% 60%;
+    --accent-foreground: 0 0% 100%;
+    --accent-light: 213 94% 68%;
+    --accent-dark: 221 83% 53%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+    --success: 160 84% 39%;
+    --warning: 38 92% 50%;
+    --border: 214 32% 91%;
+    --input: 214 32% 91%;
+    --ring: 217 91% 60%;
+    /* Hard-offset neo shadow tint (slate-900 @ 10%). */
+    --neo-shadow: 222 47% 11%;
+    --chart-1: 217 91% 60%;
+    --chart-2: 160 84% 39%;
+    --chart-3: 38 92% 50%;
+    --chart-4: 213 94% 68%;
+    --chart-5: 0 84% 60%;
+    --radius: 0.25rem;
   }
   .dark {
-    --background: 0 0% 3.9%;
-    --foreground: 0 0% 98%;
-    --card: 0 0% 3.9%;
-    --card-foreground: 0 0% 98%;
-    --popover: 0 0% 3.9%;
-    --popover-foreground: 0 0% 98%;
-    --primary: 0 0% 98%;
-    --primary-foreground: 0 0% 9%;
-    --secondary: 0 0% 14.9%;
-    --secondary-foreground: 0 0% 98%;
-    --muted: 0 0% 14.9%;
-    --muted-foreground: 0 0% 63.9%;
-    --accent: 0 0% 14.9%;
-    --accent-foreground: 0 0% 98%;
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 0 0% 14.9%;
-    --input: 0 0% 14.9%;
-    --ring: 0 0% 83.1%;
-    --chart-1: 220 70% 50%;
-    --chart-2: 160 60% 45%;
-    --chart-3: 30 80% 55%;
-    --chart-4: 280 65% 60%;
-    --chart-5: 340 75% 55%;
+    --background: 222 47% 11%;
+    --foreground: 210 40% 98%;
+    --card: 217 33% 17%;
+    --card-foreground: 210 40% 98%;
+    --popover: 217 33% 17%;
+    --popover-foreground: 210 40% 98%;
+    --primary: 210 40% 98%;
+    --primary-foreground: 222 47% 11%;
+    --secondary: 217 33% 17%;
+    --secondary-foreground: 210 40% 96%;
+    --muted: 217 33% 17%;
+    --muted-foreground: 215 16% 65%;
+    --accent: 221 83% 53%;
+    --accent-foreground: 0 0% 100%;
+    --accent-light: 213 94% 68%;
+    --accent-dark: 217 91% 60%;
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
+    --success: 160 84% 39%;
+    --warning: 38 92% 50%;
+    --border: 217 33% 24%;
+    --input: 217 33% 24%;
+    --ring: 213 94% 68%;
+    --neo-shadow: 0 0% 0%;
+    --chart-1: 213 94% 68%;
+    --chart-2: 160 84% 45%;
+    --chart-3: 38 92% 55%;
+    --chart-4: 217 91% 60%;
+    --chart-5: 0 84% 65%;
   }
 }
 
@@ -65,4 +95,74 @@
   body {
     @apply bg-background text-foreground;
   }
+  h1,
+  h2,
+  h3 {
+    @apply font-display tracking-tight;
+  }
+}
+
+/* Neo-brutalist Leaflet chrome (ported from midpoint-maps): thick-bordered,
+   hard-shadowed zoom controls and popups that match the rest of the app. */
+.leaflet-container {
+  font-family: var(--font-sans), sans-serif;
+}
+
+.leaflet-control-zoom {
+  border: 3px solid hsl(var(--border)) !important;
+  border-radius: 0.25rem !important;
+  box-shadow: 0.5rem 0.5rem 0 0 hsl(var(--neo-shadow) / 0.1) !important;
+  overflow: hidden;
+}
+
+.leaflet-control-zoom a {
+  border-radius: 0 !important;
+  background-color: hsl(var(--card)) !important;
+  color: hsl(var(--foreground)) !important;
+  transition: all 0.2s ease;
+}
+
+.leaflet-control-zoom a:hover {
+  background-color: hsl(var(--accent)) !important;
+  color: hsl(var(--accent-foreground)) !important;
+}
+
+.leaflet-popup-content-wrapper {
+  border-radius: 0.25rem !important;
+  border: 3px solid hsl(var(--border)) !important;
+  box-shadow: 0.5rem 0.5rem 0 0 hsl(var(--neo-shadow) / 0.1) !important;
+  background-color: hsl(var(--card)) !important;
+  color: hsl(var(--card-foreground)) !important;
+  padding: 0 !important;
+}
+
+.leaflet-popup-content {
+  margin: 10px !important;
+  line-height: 1.5;
+}
+
+.leaflet-popup-tip {
+  background-color: hsl(var(--card)) !important;
+  border: 3px solid hsl(var(--border));
+}
+
+.leaflet-popup-close-button {
+  color: hsl(var(--muted-foreground)) !important;
+  transition: all 0.2s ease;
+}
+
+.leaflet-popup-close-button:hover {
+  color: hsl(var(--destructive)) !important;
+}
+
+.sm-popup-caption {
+  color: hsl(var(--card-foreground));
+}
+
+.sm-popup-date {
+  color: hsl(var(--muted-foreground));
+}
+
+.sm-popup-hint {
+  color: hsl(var(--accent));
 }
