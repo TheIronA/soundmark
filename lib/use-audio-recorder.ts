@@ -13,6 +13,34 @@ export interface AudioRecording {
 
 type RecorderStatus = "idle" | "recording" | "stopped";
 
+/** Read an audio file's duration (seconds) via a throwaway <audio> element.
+ * Resolves to 0 if the browser can't determine it. */
+function readAudioDuration(url: string): Promise<number> {
+  return new Promise((resolve) => {
+    const el = document.createElement("audio");
+    el.preload = "metadata";
+    const done = (value: number) => {
+      el.removeAttribute("src");
+      resolve(Number.isFinite(value) && value > 0 ? value : 0);
+    };
+    el.onloadedmetadata = () => done(el.duration);
+    el.onerror = () => done(0);
+    el.src = url;
+  });
+}
+
+/** Turn an uploaded audio file into the same shape a recording produces. */
+export async function recordingFromFile(file: File): Promise<AudioRecording> {
+  const url = URL.createObjectURL(file);
+  const durationSec = await readAudioDuration(url);
+  return {
+    blob: file,
+    url,
+    mimeType: file.type || "audio/mpeg",
+    durationSec,
+  };
+}
+
 /** Pick a supported audio container/codec, preferring webm/opus. */
 function pickMimeType(): string {
   const candidates = [

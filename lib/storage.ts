@@ -23,6 +23,15 @@ export function buildMediaPath(
   return `${userId}/${entryId}/${filename}`;
 }
 
+/**
+ * Build the object path for a user's profile picture. Namespaced by user id
+ * (matching the storage RLS policies) with an "avatar/" prefix to keep it
+ * distinct from entry media in the same bucket.
+ */
+export function buildAvatarPath(userId: string, filename: string): string {
+  return `${userId}/avatar/${filename}`;
+}
+
 /** Upload bytes to the backend at `path`. Returns the stored path. */
 export async function uploadObject(
   supabase: SupabaseClient,

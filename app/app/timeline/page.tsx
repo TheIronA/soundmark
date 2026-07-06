@@ -136,12 +136,9 @@ async function TimelineContent() {
                     {entry.place_label || formatLatLng(entry.lat, entry.lng)}
                   </span>
                 )}
-                <Link
-                  href={`/app/entry/${entry.id}`}
-                  className="mt-0.5 self-start text-xs text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
-                >
-                  Details
-                </Link>
+                <Button asChild size="sm" variant="secondary" className="mt-1 self-start">
+                  <Link href={`/app/entry/${entry.id}`}>Details</Link>
+                </Button>
               </div>
             </li>
           );

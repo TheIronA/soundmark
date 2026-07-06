@@ -4,22 +4,24 @@
 
 @layer base {
   /*
-   * Neo-brutalist "Soundmark" palette (ported from midpoint-maps).
+   * Neo-brutalist "Soundmark" palette (ported from midpoint-maps, accent
+   * swapped from blue to a warm amber to suit a sound/memory-capture app).
    * Colors are stored as space-separated HSL triplets so shadcn's
    * hsl(var(--x)) wrappers in tailwind.config.ts resolve correctly.
    *
    *   #0F172A slate-900   222 47% 11%   primary / text
-   *   #1E293B slate-800   217 33% 17%   secondary surface (dark)
+   *   #1E293B slate-800   217 33% 17%   card surface (dark)
+   *   #293548 slate-750   217 30% 22%   secondary/muted surface (dark)
    *   #F8FAFC slate-50    210 40% 98%   background
    *   #F1F5F9 slate-100   210 40% 96%   muted / border-light
-   *   #3B82F6 blue-500    217 91% 60%   accent
-   *   #60A5FA blue-400    213 94% 68%   accent-light (dark accent)
-   *   #2563EB blue-600    221 83% 53%   accent-dark
+   *   #F59E0B amber-500    38 92% 50%   accent
+   *   #FBBF24 amber-400    43 96% 56%   accent-light (dark-mode accent)
+   *   #D97706 amber-600    32 95% 44%   accent-dark
    *   #475569 slate-600   215 25% 27%   text-secondary
    *   #64748B slate-500   215 16% 47%   text-tertiary / muted-foreground
    *   #E2E8F0 slate-200   214 32% 91%   border
    *   #10B981 emerald     160 84% 39%   success
-   *   #F59E0B amber        38 92% 50%   warning
+   *   #EAB308 yellow-500   45 93% 47%   warning (kept distinct from accent)
    *   #EF4444 red          0 84% 60%   error / destructive
    */
   :root {
@@ -35,56 +37,57 @@
     --secondary-foreground: 215 25% 27%;
     --muted: 210 40% 96%;
     --muted-foreground: 215 16% 47%;
-    --accent: 217 91% 60%;
-    --accent-foreground: 0 0% 100%;
-    --accent-light: 213 94% 68%;
-    --accent-dark: 221 83% 53%;
+    --accent: 38 92% 50%;
+    --accent-foreground: 222 47% 11%;
+    --accent-light: 43 96% 56%;
+    --accent-dark: 32 95% 44%;
     --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 100%;
     --success: 160 84% 39%;
-    --warning: 38 92% 50%;
+    --warning: 45 93% 47%;
     --border: 214 32% 91%;
     --input: 214 32% 91%;
-    --ring: 217 91% 60%;
+    --ring: 38 92% 50%;
     /* Hard-offset neo shadow tint (slate-900 @ 10%). */
     --neo-shadow: 222 47% 11%;
-    --chart-1: 217 91% 60%;
+    --chart-1: 38 92% 50%;
     --chart-2: 160 84% 39%;
-    --chart-3: 38 92% 50%;
-    --chart-4: 213 94% 68%;
-    --chart-5: 0 84% 60%;
+    --chart-3: 0 84% 60%;
+    --chart-4: 43 96% 56%;
+    --chart-5: 215 25% 27%;
     --radius: 0.25rem;
   }
   .dark {
-    --background: 222 47% 11%;
-    --foreground: 210 40% 98%;
+    --background: 222 47% 9%;
+    --foreground: 210 40% 96%;
     --card: 217 33% 17%;
-    --card-foreground: 210 40% 98%;
+    --card-foreground: 210 40% 96%;
     --popover: 217 33% 17%;
-    --popover-foreground: 210 40% 98%;
-    --primary: 210 40% 98%;
+    --popover-foreground: 210 40% 96%;
+    --primary: 210 40% 96%;
     --primary-foreground: 222 47% 11%;
-    --secondary: 217 33% 17%;
-    --secondary-foreground: 210 40% 96%;
-    --muted: 217 33% 17%;
-    --muted-foreground: 215 16% 65%;
-    --accent: 221 83% 53%;
-    --accent-foreground: 0 0% 100%;
-    --accent-light: 213 94% 68%;
-    --accent-dark: 217 91% 60%;
-    --destructive: 0 72% 51%;
+    --secondary: 217 30% 22%;
+    --secondary-foreground: 210 40% 92%;
+    --muted: 217 30% 22%;
+    --muted-foreground: 215 20% 68%;
+    --accent: 43 96% 56%;
+    --accent-foreground: 222 47% 11%;
+    --accent-light: 45 97% 64%;
+    --accent-dark: 38 92% 50%;
+    --destructive: 0 72% 55%;
     --destructive-foreground: 0 0% 100%;
-    --success: 160 84% 39%;
-    --warning: 38 92% 50%;
-    --border: 217 33% 24%;
-    --input: 217 33% 24%;
-    --ring: 213 94% 68%;
+    --success: 160 70% 45%;
+    --warning: 45 93% 55%;
+    --border: 217 28% 28%;
+    --input: 217 28% 28%;
+    --ring: 43 96% 56%;
+    /* Dark neo shadow tints toward black but stays visible against slate-900. */
     --neo-shadow: 0 0% 0%;
-    --chart-1: 213 94% 68%;
-    --chart-2: 160 84% 45%;
-    --chart-3: 38 92% 55%;
-    --chart-4: 217 91% 60%;
-    --chart-5: 0 84% 65%;
+    --chart-1: 43 96% 56%;
+    --chart-2: 160 70% 50%;
+    --chart-3: 0 72% 60%;
+    --chart-4: 38 92% 50%;
+    --chart-5: 215 20% 68%;
   }
 }
 

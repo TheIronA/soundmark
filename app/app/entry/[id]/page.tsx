@@ -1,17 +1,17 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { Suspense } from "react";
-import { ArrowLeft, MapPin } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 
 import { createClient } from "@/lib/supabase/server";
 import { getEntry, momentMedia } from "@/lib/entries";
 import { getObjectUrls } from "@/lib/storage";
-import { formatLatLng } from "@/lib/geo";
 import { bypassAuth } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { DeleteEntryButton } from "@/components/delete-entry-button";
 import { PageSpinner } from "@/components/page-spinner";
 import { MomentPhoto } from "@/components/moment-photo";
+import { EditEntryDetails } from "@/components/edit-entry-details";
 
 function formatWhen(iso: string): string {
   return new Date(iso).toLocaleString(undefined, {
@@ -81,16 +81,16 @@ async function EntryDetail({
       {audioUrl && <audio controls src={audioUrl} className="w-full" />}
 
       <div className="flex flex-col gap-1">
-        <h1 className="text-xl font-bold">{entry.title || "Untitled moment"}</h1>
-        <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
-          <span>{formatWhen(entry.recorded_at)}</span>
-          {(entry.lat !== null || entry.place_label) && (
-            <span className="flex items-center gap-1">
-              <MapPin className="size-3" />
-              {entry.place_label || formatLatLng(entry.lat, entry.lng)}
-            </span>
-          )}
-        </div>
+        <EditEntryDetails
+          entryId={entry.id}
+          title={entry.title}
+          lat={entry.lat}
+          lng={entry.lng}
+          placeLabel={entry.place_label}
+        />
+        <span className="text-sm text-muted-foreground">
+          {formatWhen(entry.recorded_at)}
+        </span>
       </div>
 
       {entry.note && (

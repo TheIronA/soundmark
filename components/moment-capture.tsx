@@ -7,13 +7,14 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Camera, Loader2, MapPin, Check, ChevronDown } from "lucide-react";
+import { Camera, Loader2, MapPin, Check, ChevronDown, Pencil } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { AudioRecorderControl } from "@/components/audio-recorder-control";
+import { LocationPicker } from "@/components/location-picker";
 import { getCurrentPosition, readPhotoExif, formatLatLng } from "@/lib/geo";
 import {
   audioExtensionFor,
@@ -37,6 +38,9 @@ export function MomentCapture() {
   const [lng, setLng] = useState<number | null>(null);
   const [recordedAt, setRecordedAt] = useState<string | null>(null);
   const [locating, setLocating] = useState(false);
+  // The manual map picker is always available via the edit button, and
+  // opens automatically when both EXIF and live geolocation fail.
+  const [showLocationPicker, setShowLocationPicker] = useState(false);
 
   const [showDetails, setShowDetails] = useState(false);
   const [title, setTitle] = useState("");
@@ -55,12 +59,13 @@ export function MomentCapture() {
         if (prev) URL.revokeObjectURL(prev);
         return URL.createObjectURL(file);
       });
+      setShowLocationPicker(false);
 
       // Advance straight to recording — the sound is the next half of the gesture.
       setStep("sound");
 
       // Derive location + time from the photo. Fall back to live geolocation
-      // if the photo has no GPS.
+      // if the photo has no GPS, and to a manual pin if that fails too.
       const { gps, takenAt } = await readPhotoExif(file);
       setRecordedAt(takenAt ?? new Date().toISOString());
       if (gps) {
@@ -73,7 +78,7 @@ export function MomentCapture() {
           setLat(pos.lat);
           setLng(pos.lng);
         } catch {
-          // No location available; the moment can still be saved without one.
+          setShowLocationPicker(true);
         } finally {
           setLocating(false);
         }
@@ -81,6 +86,11 @@ export function MomentCapture() {
     },
     [],
   );
+
+  const handleManualLocation = useCallback((pickedLat: number, pickedLng: number) => {
+    setLat(pickedLat);
+    setLng(pickedLng);
+  }, []);
 
   const handleAudioChange = useCallback((rec: AudioRecording | null) => {
     setRecording(rec);
@@ -137,11 +147,13 @@ export function MomentCapture() {
   if (step === "photo") {
     return (
       <div className="flex flex-col items-center gap-6 py-8">
+        {/* No `capture` attribute: choosing a photo from the library is the
+            default so the image's own EXIF GPS/time can be used. Live
+            geolocation is only a fallback when the photo has no GPS. */}
         <input
           ref={fileInputRef}
           type="file"
           accept="image/*"
-          capture="environment"
           className="hidden"
           onChange={(e) => handlePhotoPicked(e.target.files?.[0] ?? null)}
         />
@@ -178,15 +190,32 @@ export function MomentCapture() {
           ) : (
             <>
               <MapPin className="size-4" /> {formatLatLng(lat, lng)}
+              <button
+                type="button"
+                onClick={() => setShowLocationPicker((v) => !v)}
+                className="text-muted-foreground hover:text-foreground"
+                aria-label="Edit location"
+              >
+                <Pencil className="size-3.5" />
+              </button>
             </>
           )}
         </div>
+        {showLocationPicker && !locating && (
+          <div className="flex w-full max-w-sm flex-col gap-2">
+            <p className="text-xs text-muted-foreground">
+              Tap the map to set this moment&apos;s location.
+            </p>
+            <LocationPicker lat={lat} lng={lng} onPick={handleManualLocation} />
+          </div>
+        )}
       </div>
 
       <div className="flex flex-col items-center gap-2 rounded-neo border-3 border-border bg-card p-5 shadow-neo-sm">
-        <span className="text-sm font-medium">Now record the sound</span>
+        <span className="text-sm font-medium">Now add the sound</span>
         <span className="text-xs text-muted-foreground">
-          A few seconds of what this place sounded like.
+          Record a few seconds of what this place sounded like, or upload a
+          voice file.
         </span>
         <div className="mt-2">
           <AudioRecorderControl onChange={handleAudioChange} />

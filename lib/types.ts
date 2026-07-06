@@ -33,3 +33,12 @@ export interface Media {
 export interface EntryWithMedia extends Entry {
   media: Media[];
 }
+
+/** A user's display settings: username + profile picture. */
+export interface Profile {
+  id: string;
+  username: string | null;
+  /** Backend-agnostic object path. Resolve to a URL via lib/storage. */
+  avatar_path: string | null;
+  updated_at: string;
+}

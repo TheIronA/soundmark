@@ -12,6 +12,7 @@ import { createClient } from "@/lib/supabase/client";
 import { buildMediaPath, uploadObject } from "@/lib/storage";
 import { generatePhotoThumbnail } from "@/lib/thumbnail";
 import type { Entry, MediaType } from "@/lib/types";
+import { uniqueId } from "@/lib/utils";
 
 export interface NewEntryInput {
   title: string;
@@ -31,11 +32,16 @@ export interface NewMediaInput {
   durationSec?: number | null;
 }
 
-/** Choose a file extension for a recorded audio blob based on its MIME type. */
+/** Choose a file extension for an audio blob (recorded or uploaded) based on
+ * its MIME type. */
 export function audioExtensionFor(mimeType: string): string {
   if (mimeType.includes("webm")) return "webm";
-  if (mimeType.includes("mp4")) return "m4a";
+  if (mimeType.includes("mp4") || mimeType.includes("m4a")) return "m4a";
   if (mimeType.includes("ogg")) return "ogg";
+  if (mimeType.includes("mpeg") || mimeType.includes("mp3")) return "mp3";
+  if (mimeType.includes("wav")) return "wav";
+  if (mimeType.includes("aac")) return "aac";
+  if (mimeType.includes("flac")) return "flac";
   return "webm";
 }
 
@@ -137,10 +143,4 @@ export async function createMoment(
   }
 
   return entry as Entry;
-}
-
-function uniqueId(): string {
-  return typeof crypto !== "undefined" && "randomUUID" in crypto
-    ? crypto.randomUUID()
-    : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
 }

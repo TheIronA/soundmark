@@ -37,7 +37,14 @@ export async function readPhotoExif(file: File): Promise<PhotoExif> {
   try {
     const data = await exifr.parse(file, {
       gps: true,
-      pick: ["latitude", "longitude", "DateTimeOriginal", "CreateDate"],
+      pick: [
+        "GPSLatitude",
+        "GPSLatitudeRef",
+        "GPSLongitude",
+        "GPSLongitudeRef",
+        "DateTimeOriginal",
+        "CreateDate",
+      ],
     });
     if (!data) return { gps: null, takenAt: null };
 

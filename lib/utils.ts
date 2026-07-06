@@ -14,3 +14,11 @@ export const hasEnvVars =
 // to skip the login flow when there's no real Supabase project configured.
 // Never enable this in production.
 export const bypassAuth = process.env.NEXT_PUBLIC_DEV_BYPASS_AUTH === "true";
+
+/** A short random id, used to namespace uploaded object keys. */
+export function uniqueId(): string {
+  return typeof crypto !== "undefined" && "randomUUID" in crypto
+    ? crypto.randomUUID()
+    : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+}
+
