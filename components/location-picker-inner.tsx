@@ -82,7 +82,7 @@ export function LocationPicker({
   return (
     <div
       ref={containerRef}
-      className="h-48 w-full overflow-hidden rounded-neo border-3 border-border shadow-neo-sm"
+      className="h-80 w-full overflow-hidden rounded-neo border-3 border-border shadow-neo-sm sm:h-64"
     />
   );
 }
