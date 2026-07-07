@@ -8,6 +8,8 @@ import { useEffect, useRef } from "react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 
+import { MapSearchBox, type GeocodeResult } from "@/components/map-search-box";
+
 function pinIcon(): L.DivIcon {
   return L.divIcon({
     className: "",
@@ -102,10 +104,17 @@ export function LocationPicker({
     map.setView([lat, lng], Math.max(map.getZoom(), 12));
   }, [lat, lng]);
 
+  const handleSearchSelect = (result: GeocodeResult) => {
+    onPickRef.current(result.lat, result.lng);
+  };
+
   return (
-    <div
-      ref={containerRef}
-      className="h-80 w-full overflow-hidden rounded-neo border-3 border-border shadow-neo-sm sm:h-64"
-    />
+    <div className="flex flex-col gap-2">
+      <MapSearchBox onSelect={handleSearchSelect} />
+      <div
+        ref={containerRef}
+        className="h-80 w-full overflow-hidden rounded-neo border-3 border-border shadow-neo-sm sm:h-64"
+      />
+    </div>
   );
 }

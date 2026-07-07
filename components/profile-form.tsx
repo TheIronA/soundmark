@@ -78,6 +78,7 @@ export function ProfileForm({
       }
 
       setStatus("Profile saved.");
+      router.push("/app/map");
       router.refresh();
     } catch (err) {
       setError(

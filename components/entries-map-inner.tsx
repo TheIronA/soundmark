@@ -6,6 +6,7 @@ import "leaflet/dist/leaflet.css";
 import { X } from "lucide-react";
 
 import { MomentPhoto } from "@/components/moment-photo";
+import { MapSearchBox, type GeocodeResult } from "@/components/map-search-box";
 
 export interface MapEntry {
   id: string;
@@ -133,8 +134,15 @@ export function EntriesMap({ entries }: { entries: MapEntry[] }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const handleSearchSelect = (result: GeocodeResult) => {
+    mapRef.current?.setView([result.lat, result.lng], 13);
+  };
+
   return (
     <>
+      <div className="absolute left-3 right-3 top-3 z-[500] sm:left-4 sm:right-auto sm:w-80">
+        <MapSearchBox onSelect={handleSearchSelect} />
+      </div>
       <div
         ref={containerRef}
         className="h-[70vh] w-full overflow-hidden rounded-neo border-3 border-border shadow-neo"

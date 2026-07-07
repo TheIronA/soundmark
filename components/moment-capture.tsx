@@ -15,6 +15,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { AudioRecorderControl } from "@/components/audio-recorder-control";
 import { LocationPicker } from "@/components/location-picker";
+import { PhotoCropper } from "@/components/photo-cropper";
 import { getCurrentPosition, readPhotoExif, formatLatLng } from "@/lib/geo";
 import {
   audioExtensionFor,
@@ -23,13 +24,15 @@ import {
 } from "@/lib/create-entry";
 import type { AudioRecording } from "@/lib/use-audio-recorder";
 
-type Step = "photo" | "sound";
+type Step = "photo" | "crop" | "sound";
 
 export function MomentCapture() {
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [step, setStep] = useState<Step>("photo");
+  // The just-picked, uncropped file, shown in the cropper before it becomes `photo`.
+  const [rawPhoto, setRawPhoto] = useState<File | null>(null);
   const [photo, setPhoto] = useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [recording, setRecording] = useState<AudioRecording | null>(null);
@@ -69,18 +72,15 @@ export function MomentCapture() {
     async (file: File | null) => {
       if (!file) return;
       setError(null);
-      setPhoto(file);
-      setPhotoPreview((prev) => {
-        if (prev) URL.revokeObjectURL(prev);
-        return URL.createObjectURL(file);
-      });
+      setRawPhoto(file);
       setShowLocationPicker(false);
 
-      // Advance straight to recording — the sound is the next half of the gesture.
-      setStep("sound");
+      // Show the cropper first — the photo isn't "picked" for real until the
+      // framing is confirmed.
+      setStep("crop");
 
-      // Derive location + time from the photo. Fall back to live geolocation
-      // if the photo has no GPS, and to a manual pin if that fails too.
+      // Derive location + time from the photo now, while cropping happens;
+      // the crop (a re-encoded canvas image) won't carry EXIF itself.
       const { gps, takenAt } = await readPhotoExif(file);
       setRecordedAt(takenAt ?? new Date().toISOString());
       if (gps) {
@@ -92,6 +92,21 @@ export function MomentCapture() {
     },
     [locateLive],
   );
+
+  const handleCropConfirm = useCallback((cropped: File) => {
+    setPhoto(cropped);
+    setPhotoPreview((prev) => {
+      if (prev) URL.revokeObjectURL(prev);
+      return URL.createObjectURL(cropped);
+    });
+    setRawPhoto(null);
+    setStep("sound");
+  }, []);
+
+  const handleCropCancel = useCallback(() => {
+    setRawPhoto(null);
+    setStep("photo");
+  }, []);
 
   const handleSkipPhoto = useCallback(() => {
     setError(null);
@@ -190,6 +205,20 @@ export function MomentCapture() {
         >
           Or just record a sound, no photo
         </button>
+      </div>
+    );
+  }
+
+  // Step 1.5: crop the picked photo to the square it'll be shown as
+  // everywhere in the app, before committing to it.
+  if (step === "crop" && rawPhoto) {
+    return (
+      <div className="flex flex-col items-center gap-4 py-8">
+        <PhotoCropper
+          file={rawPhoto}
+          onCancel={handleCropCancel}
+          onConfirm={handleCropConfirm}
+        />
       </div>
     );
   }
