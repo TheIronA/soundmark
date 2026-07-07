@@ -12,6 +12,7 @@ import { DeleteEntryButton } from "@/components/delete-entry-button";
 import { PageSpinner } from "@/components/page-spinner";
 import { MomentPhoto } from "@/components/moment-photo";
 import { EditEntryDetails } from "@/components/edit-entry-details";
+import { AddAudioButton } from "@/components/add-audio-button";
 
 function formatWhen(iso: string): string {
   return new Date(iso).toLocaleString(undefined, {
@@ -77,8 +78,13 @@ async function EntryDetail({
         rounded="rounded-neo"
       />
 
-      {/* A full player too, for scrubbing. */}
-      {audioUrl && <audio controls src={audioUrl} className="w-full" />}
+      {/* A full player too, for scrubbing — or a way to add a sound if this
+          moment was saved without one. */}
+      {audioUrl ? (
+        <audio controls src={audioUrl} className="w-full" />
+      ) : (
+        <AddAudioButton entryId={entry.id} />
+      )}
 
       <div className="flex flex-col gap-1">
         <EditEntryDetails

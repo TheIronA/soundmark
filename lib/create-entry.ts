@@ -46,14 +46,18 @@ export function audioExtensionFor(mimeType: string): string {
 }
 
 /**
- * Create a moment: an entry with one photo and (optionally) one sound.
- * Returns the created entry.
+ * Create a moment: an entry with a photo and/or a sound (at least one of the
+ * two is required). Returns the created entry.
  */
 export async function createMoment(
   input: NewEntryInput,
-  photo: NewMediaInput,
+  photo: NewMediaInput | null,
   audio: NewMediaInput | null,
 ): Promise<Entry> {
+  if (!photo && !audio) {
+    throw new Error("A moment needs a photo or a sound.");
+  }
+
   const supabase = createClient();
 
   const {
@@ -84,8 +88,8 @@ export async function createMoment(
 
   const mediaRows: Array<Record<string, unknown>> = [];
 
-  // 2) Upload the photo + a downscaled thumbnail.
-  {
+  // 2) Upload the photo + a downscaled thumbnail, if there is one.
+  if (photo) {
     const prefix = uniqueId();
     const photoPath = buildMediaPath(
       user.id,

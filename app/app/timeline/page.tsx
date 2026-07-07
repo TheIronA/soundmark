@@ -75,7 +75,7 @@ async function TimelineContent() {
       <div className="flex flex-col items-center justify-center gap-4 py-24 text-center">
         <h1 className="text-2xl font-bold">No moments yet</h1>
         <p className="max-w-sm text-muted-foreground">
-          Capture a photo and the sound around it to start your collection.
+          Capture a photo, a sound, or both to start your collection.
         </p>
         <Button asChild>
           <Link href="/app/new">
@@ -94,7 +94,7 @@ async function TimelineContent() {
         <div>
           <h1 className="text-2xl font-bold">Your moments</h1>
           <p className="text-sm text-muted-foreground">
-            Tap a photo to hear it.
+            Tap a moment to hear it.
           </p>
         </div>
         <Button asChild size="sm">

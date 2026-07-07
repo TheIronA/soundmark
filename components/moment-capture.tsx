@@ -50,6 +50,21 @@ export function MomentCapture() {
   const [status, setStatus] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  // Live geolocation (+ manual-pin fallback), shared by both entry points
+  // below since neither has photo EXIF to derive a location from.
+  const locateLive = useCallback(async () => {
+    setLocating(true);
+    try {
+      const pos = await getCurrentPosition();
+      setLat(pos.lat);
+      setLng(pos.lng);
+    } catch {
+      setShowLocationPicker(true);
+    } finally {
+      setLocating(false);
+    }
+  }, []);
+
   const handlePhotoPicked = useCallback(
     async (file: File | null) => {
       if (!file) return;
@@ -72,20 +87,20 @@ export function MomentCapture() {
         setLat(gps.lat);
         setLng(gps.lng);
       } else {
-        setLocating(true);
-        try {
-          const pos = await getCurrentPosition();
-          setLat(pos.lat);
-          setLng(pos.lng);
-        } catch {
-          setShowLocationPicker(true);
-        } finally {
-          setLocating(false);
-        }
+        await locateLive();
       }
     },
-    [],
+    [locateLive],
   );
+
+  const handleSkipPhoto = useCallback(() => {
+    setError(null);
+    setPhoto(null);
+    setShowLocationPicker(false);
+    setStep("sound");
+    setRecordedAt(new Date().toISOString());
+    void locateLive();
+  }, [locateLive]);
 
   const handleManualLocation = useCallback((pickedLat: number, pickedLng: number) => {
     setLat(pickedLat);
@@ -103,15 +118,17 @@ export function MomentCapture() {
   }, [photoPreview]);
 
   const handleSave = async () => {
-    if (!photo) return;
+    if (!photo && !recording) return;
     setError(null);
     setSubmitting(true);
     try {
-      const photoMedia: NewMediaInput = {
-        type: "photo",
-        data: photo,
-        filename: photo.name,
-      };
+      const photoMedia: NewMediaInput | null = photo
+        ? {
+            type: "photo",
+            data: photo,
+            filename: photo.name,
+          }
+        : null;
       const audioMedia: NewMediaInput | null = recording
         ? {
             type: "audio",
@@ -165,6 +182,13 @@ export function MomentCapture() {
           <Camera className="size-16" strokeWidth={1.5} />
           <span className="text-lg font-medium">Capture a moment</span>
           <span className="text-sm">Take or choose a photo to begin</span>
+        </button>
+        <button
+          type="button"
+          onClick={handleSkipPhoto}
+          className="text-sm text-muted-foreground underline-offset-4 hover:text-accent hover:underline"
+        >
+          Or just record a sound, no photo
         </button>
       </div>
     );
@@ -265,7 +289,11 @@ export function MomentCapture() {
       )}
 
       <div className="flex items-center gap-3">
-        <Button onClick={handleSave} disabled={submitting} className="flex-1">
+        <Button
+          onClick={handleSave}
+          disabled={submitting || (!photo && !recording)}
+          className="flex-1"
+        >
           {submitting ? (
             <Loader2 className="mr-2 size-4 animate-spin" />
           ) : (
@@ -274,7 +302,12 @@ export function MomentCapture() {
           Save moment
         </Button>
       </div>
-      {!recording && !submitting && (
+      {!photo && !recording && !submitting && (
+        <p className="-mt-3 text-center text-xs text-muted-foreground">
+          Add a photo or record a sound to save this moment.
+        </p>
+      )}
+      {photo && !recording && !submitting && (
         <p className="-mt-3 text-center text-xs text-muted-foreground">
           You can save with just the photo, but the sound is the point.
         </p>

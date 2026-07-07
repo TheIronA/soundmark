@@ -33,11 +33,17 @@ async function MapContent() {
     (e) => typeof e.lat === "number" && typeof e.lng === "number",
   );
 
-  // Resolve photo (thumbnail) + sound URLs for the located moments.
+  // Resolve photo URLs for the located moments: the small thumbnail for the
+  // map pin popup, plus the full-resolution original for the "tap to
+  // enlarge" lightbox (thumbnails are heavily downscaled and look blurry
+  // blown up). Sound uses its one and only file.
   const paths = locatedEntries.flatMap((e) => {
     const { photo, audio } = momentMedia(e);
     const out: string[] = [];
-    if (photo) out.push(photo.thumbnail_path ?? photo.storage_path);
+    if (photo) {
+      out.push(photo.storage_path);
+      if (photo.thumbnail_path) out.push(photo.thumbnail_path);
+    }
     if (audio) out.push(audio.storage_path);
     return out;
   });
@@ -54,6 +60,7 @@ async function MapContent() {
       photoUrl: photo
         ? urls[photo.thumbnail_path ?? photo.storage_path] ?? null
         : null,
+      fullPhotoUrl: photo ? urls[photo.storage_path] ?? null : null,
       audioUrl: audio ? urls[audio.storage_path] ?? null : null,
     };
   });
@@ -64,8 +71,8 @@ async function MapContent() {
         <div>
           <h1 className="text-2xl font-bold">Map</h1>
           <p className="text-sm text-muted-foreground">
-            {located.length} of {entries.length} moments have a location. Tap a
-            photo to hear it.
+            {located.length} of {entries.length} moments have a location. Tap
+            a marker to hear it.
           </p>
         </div>
         <Button asChild size="sm">

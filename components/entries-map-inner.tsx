@@ -1,8 +1,11 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
+import { X } from "lucide-react";
+
+import { MomentPhoto } from "@/components/moment-photo";
 
 export interface MapEntry {
   id: string;
@@ -11,6 +14,9 @@ export interface MapEntry {
   lng: number;
   recorded_at: string;
   photoUrl: string | null;
+  /** Full-resolution original, used for the enlarge lightbox (photoUrl is a
+   * small, heavily-compressed thumbnail meant only for the pin popup). */
+  fullPhotoUrl: string | null;
   audioUrl: string | null;
 }
 
@@ -37,8 +43,10 @@ function pinIcon(): L.DivIcon {
 export function EntriesMap({ entries }: { entries: MapEntry[] }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<L.Map | null>(null);
-  // One shared audio element so only one moment sounds at a time.
-  const audioRef = useRef<HTMLAudioElement | null>(null);
+  // The entry whose photo is currently enlarged in the lightbox, if any.
+  const [enlarged, setEnlarged] = useState<MapEntry | null>(null);
+  const enlargeRef = useRef(setEnlarged);
+  enlargeRef.current = setEnlarged;
 
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return;
@@ -55,17 +63,10 @@ export function EntriesMap({ entries }: { entries: MapEntry[] }) {
     L.control.zoom({ position: "topright" }).addTo(map);
     mapRef.current = map;
 
-    const playAudio = (url: string) => {
-      if (!audioRef.current) audioRef.current = new Audio();
-      const el = audioRef.current;
-      if (el.src !== url) el.src = url;
-      el.currentTime = 0;
-      void el.play().catch(() => {});
-    };
-
     const bounds = L.latLngBounds([]);
     for (const entry of entries) {
-      // Build a small popup card. Tapping the photo plays the sound inline.
+      // Build a small popup card. Tapping the photo enlarges it, mirroring
+      // the tap-to-hear photo on the entry detail page.
       const el = document.createElement("div");
       el.className = "sm-popup";
       el.style.width = "180px";
@@ -75,14 +76,18 @@ export function EntriesMap({ entries }: { entries: MapEntry[] }) {
         img.src = entry.photoUrl;
         img.alt = entry.title ?? "Moment";
         img.style.cssText =
-          "width:100%;height:120px;object-fit:cover;border-radius:8px;display:block;" +
-          (entry.audioUrl ? "cursor:pointer;" : "");
-        if (entry.audioUrl) {
-          const url = entry.audioUrl;
-          img.title = "Tap to hear";
-          img.addEventListener("click", () => playAudio(url));
-        }
+          "width:100%;height:120px;object-fit:cover;border-radius:8px;display:block;cursor:pointer;";
+        img.title = "Tap to enlarge";
+        img.addEventListener("click", () => enlargeRef.current(entry));
         el.appendChild(img);
+      } else if (entry.audioUrl) {
+        // No photo on this moment — show a mic placeholder so it isn't a
+        // blank popup, mirroring MomentPhoto's audio-only fallback.
+        const placeholder = document.createElement("div");
+        placeholder.style.cssText =
+          "width:100%;height:80px;border-radius:8px;display:flex;align-items:center;justify-content:center;background:rgba(127,127,127,0.15);font-size:24px;";
+        placeholder.textContent = "🎙️";
+        el.appendChild(placeholder);
       }
 
       const caption = document.createElement("div");
@@ -96,11 +101,15 @@ export function EntriesMap({ entries }: { entries: MapEntry[] }) {
       date.textContent = new Date(entry.recorded_at).toLocaleDateString();
       caption.appendChild(title);
       caption.appendChild(date);
-      if (entry.audioUrl) {
+      if (entry.photoUrl || entry.audioUrl) {
         const hint = document.createElement("div");
         hint.style.cssText = "font-size:11px;margin-top:2px;";
         hint.className = "sm-popup-hint";
-        hint.textContent = "🔊 Tap photo to hear";
+        hint.textContent = entry.photoUrl
+          ? entry.audioUrl
+            ? "🔊 Tap photo to enlarge & hear"
+            : "Tap photo to enlarge"
+          : "🔊 Has sound";
         caption.appendChild(hint);
       }
       el.appendChild(caption);
@@ -117,7 +126,6 @@ export function EntriesMap({ entries }: { entries: MapEntry[] }) {
     }
 
     return () => {
-      audioRef.current?.pause();
       map.remove();
       mapRef.current = null;
     };
@@ -126,9 +134,50 @@ export function EntriesMap({ entries }: { entries: MapEntry[] }) {
   }, []);
 
   return (
-    <div
-      ref={containerRef}
-      className="h-[70vh] w-full overflow-hidden rounded-neo border-3 border-border shadow-neo"
-    />
+    <>
+      <div
+        ref={containerRef}
+        className="h-[70vh] w-full overflow-hidden rounded-neo border-3 border-border shadow-neo"
+      />
+
+      {/* Lightbox: an enlarged version of the tapped photo, matching the
+          tap-to-hear photo on the entry detail page. */}
+      {enlarged && (
+        <div
+          className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/80 p-4"
+          onClick={() => setEnlarged(null)}
+        >
+          <div
+            className="flex w-full max-w-md flex-col gap-3"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between text-white">
+              <div>
+                <div className="font-semibold">
+                  {enlarged.title || "Moment"}
+                </div>
+                <div className="text-xs opacity-80">
+                  {new Date(enlarged.recorded_at).toLocaleDateString()}
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setEnlarged(null)}
+                aria-label="Close"
+                className="rounded-full bg-white/10 p-2 hover:bg-white/20"
+              >
+                <X className="size-5" />
+              </button>
+            </div>
+            <MomentPhoto
+              photoUrl={enlarged.fullPhotoUrl ?? enlarged.photoUrl}
+              audioUrl={enlarged.audioUrl}
+              alt={enlarged.title || "Moment"}
+              className="aspect-square w-full"
+            />
+          </div>
+        </div>
+      )}
+    </>
   );
 }

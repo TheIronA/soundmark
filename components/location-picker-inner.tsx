@@ -37,29 +37,52 @@ export function LocationPicker({
   onPickRef.current = onPick;
 
   useEffect(() => {
-    if (!containerRef.current || mapRef.current) return;
+    const container = containerRef.current;
+    if (!container || mapRef.current) return;
 
-    const map = L.map(containerRef.current, {
-      center: [lat ?? 20, lng ?? 0],
-      zoom: lat != null ? 12 : 1.5,
-      zoomControl: false,
-    });
-    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-      attribution:
-        '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-      maxZoom: 19,
-    }).addTo(map);
-    L.control.zoom({ position: "topright" }).addTo(map);
+    // On mobile the container can still be mid-layout (e.g. right after a
+    // collapsed section opens) when this effect fires, leaving it with zero
+    // size. Initializing Leaflet against a zero-size container throws and,
+    // with no error boundary above this component, took down the whole page.
+    let cancelled = false;
+    let rafId: number | null = null;
 
-    map.on("click", (e: L.LeafletMouseEvent) => {
-      const { lat: clickLat, lng: clickLng } = e.latlng;
-      onPickRef.current(clickLat, clickLng);
-    });
+    const tryInit = () => {
+      if (cancelled) return;
+      if (container.clientWidth === 0 || container.clientHeight === 0) {
+        rafId = requestAnimationFrame(tryInit);
+        return;
+      }
 
-    mapRef.current = map;
+      const map = L.map(container, {
+        center: [lat ?? 20, lng ?? 0],
+        zoom: lat != null ? 12 : 1.5,
+        zoomControl: false,
+      });
+      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        attribution:
+          '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+        maxZoom: 19,
+      }).addTo(map);
+      L.control.zoom({ position: "topright" }).addTo(map);
+
+      map.on("click", (e: L.LeafletMouseEvent) => {
+        const { lat: clickLat, lng: clickLng } = e.latlng;
+        onPickRef.current(clickLat, clickLng);
+      });
+
+      mapRef.current = map;
+      // The container's final size may differ from what Leaflet saw at
+      // construction time; re-measure once tiles/layout have settled.
+      map.invalidateSize();
+    };
+
+    tryInit();
 
     return () => {
-      map.remove();
+      cancelled = true;
+      if (rafId != null) cancelAnimationFrame(rafId);
+      mapRef.current?.remove();
       mapRef.current = null;
       markerRef.current = null;
     };
