@@ -7,8 +7,24 @@
 import { useEffect, useRef, useState } from "react";
 import { Volume2, Pause, ImageOff, Mic } from "lucide-react";
 
-// Track the currently-playing element so only one moment sounds at a time.
+// Track the currently-playing element so only one moment sounds at a time,
+// across MomentPhoto instances and other players (e.g. the map popup).
 let currentAudio: HTMLAudioElement | null = null;
+
+/** Stop whatever moment sound is currently playing, if any. */
+export function stopCurrentMomentAudio() {
+  currentAudio?.pause();
+  currentAudio = null;
+}
+
+/**
+ * Claim the single "currently playing" slot for `el`, pausing whatever
+ * else (from any player, MomentPhoto or otherwise) was playing before it.
+ */
+export function setCurrentMomentAudio(el: HTMLAudioElement) {
+  if (currentAudio && currentAudio !== el) currentAudio.pause();
+  currentAudio = el;
+}
 
 export interface MomentPhotoProps {
   photoUrl: string | null;
@@ -55,9 +71,7 @@ export function MomentPhoto({
       el.pause();
       return;
     }
-    // Pause whatever else is playing first.
-    if (currentAudio && currentAudio !== el) currentAudio.pause();
-    currentAudio = el;
+    setCurrentMomentAudio(el);
     el.currentTime = 0;
     void el.play().catch(() => setPlaying(false));
   };

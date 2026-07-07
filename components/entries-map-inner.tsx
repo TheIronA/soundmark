@@ -5,7 +5,7 @@ import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { X } from "lucide-react";
 
-import { MomentPhoto } from "@/components/moment-photo";
+import { MomentPhoto, setCurrentMomentAudio } from "@/components/moment-photo";
 import { MapSearchBox, type GeocodeResult } from "@/components/map-search-box";
 
 export interface MapEntry {
@@ -64,31 +64,95 @@ export function EntriesMap({ entries }: { entries: MapEntry[] }) {
     L.control.zoom({ position: "topright" }).addTo(map);
     mapRef.current = map;
 
+    // Popup audio elements, keyed by entry id, so they can be paused when
+    // their popup closes or the map unmounts.
+    const markerAudioEls = new Map<string, HTMLAudioElement>();
+
     const bounds = L.latLngBounds([]);
     for (const entry of entries) {
-      // Build a small popup card. Tapping the photo enlarges it, mirroring
-      // the tap-to-hear photo on the entry detail page.
+      // Build a small popup card. Tapping the photo/placeholder plays its
+      // sound directly, mirroring the tap-to-hear photo on the timeline. A
+      // small corner button opens the full-size enlarge lightbox instead.
       const el = document.createElement("div");
       el.className = "sm-popup";
       el.style.width = "180px";
 
-      if (entry.photoUrl) {
-        const img = document.createElement("img");
-        img.src = entry.photoUrl;
-        img.alt = entry.title ?? "Moment";
-        img.style.cssText =
-          "width:100%;height:120px;object-fit:cover;border-radius:8px;display:block;cursor:pointer;";
-        img.title = "Tap to enlarge";
-        img.addEventListener("click", () => enlargeRef.current(entry));
-        el.appendChild(img);
-      } else if (entry.audioUrl) {
-        // No photo on this moment — show a mic placeholder so it isn't a
-        // blank popup, mirroring MomentPhoto's audio-only fallback.
-        const placeholder = document.createElement("div");
-        placeholder.style.cssText =
-          "width:100%;height:80px;border-radius:8px;display:flex;align-items:center;justify-content:center;background:rgba(127,127,127,0.15);font-size:24px;";
-        placeholder.textContent = "🎙️";
-        el.appendChild(placeholder);
+      if (entry.photoUrl || entry.audioUrl) {
+        const media = document.createElement("div");
+        media.style.cssText =
+          "position:relative;width:100%;border-radius:8px;overflow:hidden;";
+
+        let audio: HTMLAudioElement | null = null;
+        let playing = false;
+
+        const badge = document.createElement("span");
+        badge.style.cssText =
+          "position:absolute;bottom:6px;right:6px;display:flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:9999px;background:rgba(0,0,0,.55);color:#fff;font-size:12px;pointer-events:none;";
+        badge.textContent = "🔊";
+
+        const setPlaying = (next: boolean) => {
+          playing = next;
+          badge.textContent = playing ? "⏸" : "🔊";
+          badge.style.background = playing
+            ? "rgba(239,68,68,.9)"
+            : "rgba(0,0,0,.55)";
+        };
+
+        if (entry.photoUrl) {
+          const img = document.createElement("img");
+          img.src = entry.photoUrl;
+          img.alt = entry.title ?? "Moment";
+          img.style.cssText =
+            "width:100%;height:120px;object-fit:cover;display:block;";
+          media.appendChild(img);
+        } else {
+          // No photo on this moment — show a mic placeholder so it isn't a
+          // blank popup, mirroring MomentPhoto's audio-only fallback.
+          const placeholder = document.createElement("div");
+          placeholder.style.cssText =
+            "width:100%;height:80px;display:flex;align-items:center;justify-content:center;background:rgba(127,127,127,0.15);font-size:24px;";
+          placeholder.textContent = "🎙️";
+          media.appendChild(placeholder);
+        }
+
+        if (entry.audioUrl) {
+          media.style.cursor = "pointer";
+          media.title = "Tap to hear";
+          media.appendChild(badge);
+          media.addEventListener("click", () => {
+            if (!audio) {
+              audio = new Audio(entry.audioUrl!);
+              audio.addEventListener("play", () => setPlaying(true));
+              audio.addEventListener("pause", () => setPlaying(false));
+              audio.addEventListener("ended", () => setPlaying(false));
+              markerAudioEls.set(entry.id, audio);
+            }
+            if (playing) {
+              audio.pause();
+              return;
+            }
+            setCurrentMomentAudio(audio);
+            audio.currentTime = 0;
+            void audio.play().catch(() => setPlaying(false));
+          });
+        }
+
+        if (entry.photoUrl) {
+          const expand = document.createElement("button");
+          expand.type = "button";
+          expand.title = "Enlarge";
+          expand.setAttribute("aria-label", "Enlarge photo");
+          expand.style.cssText =
+            "position:absolute;top:6px;right:6px;display:flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:9999px;background:rgba(0,0,0,.55);color:#fff;font-size:12px;border:none;cursor:pointer;";
+          expand.textContent = "⤢";
+          expand.addEventListener("click", (e) => {
+            e.stopPropagation();
+            enlargeRef.current(entry);
+          });
+          media.appendChild(expand);
+        }
+
+        el.appendChild(media);
       }
 
       const caption = document.createElement("div");
@@ -102,23 +166,17 @@ export function EntriesMap({ entries }: { entries: MapEntry[] }) {
       date.textContent = new Date(entry.recorded_at).toLocaleDateString();
       caption.appendChild(title);
       caption.appendChild(date);
-      if (entry.photoUrl || entry.audioUrl) {
-        const hint = document.createElement("div");
-        hint.style.cssText = "font-size:11px;margin-top:2px;";
-        hint.className = "sm-popup-hint";
-        hint.textContent = entry.photoUrl
-          ? entry.audioUrl
-            ? "🔊 Tap photo to enlarge & hear"
-            : "Tap photo to enlarge"
-          : "🔊 Has sound";
-        caption.appendChild(hint);
-      }
       el.appendChild(caption);
 
       const marker = L.marker([entry.lat, entry.lng], { icon: pinIcon() })
         .bindPopup(el, { maxWidth: 200 })
         .addTo(map);
       marker.getElement()?.style.setProperty("cursor", "pointer");
+      // Stop this popup's sound when it closes, so audio doesn't keep
+      // playing after the user navigates away from it.
+      marker.on("popupclose", () => {
+        markerAudioEls.get(entry.id)?.pause();
+      });
       bounds.extend([entry.lat, entry.lng]);
     }
 
@@ -127,6 +185,8 @@ export function EntriesMap({ entries }: { entries: MapEntry[] }) {
     }
 
     return () => {
+      for (const el of markerAudioEls.values()) el.pause();
+      markerAudioEls.clear();
       map.remove();
       mapRef.current = null;
     };
