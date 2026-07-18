@@ -29,6 +29,29 @@ function readAudioDuration(url: string): Promise<number> {
   });
 }
 
+/** Best-effort MIME type from a filename extension, for the common case of
+ * phone voice memos that arrive with an empty `file.type`. */
+function mimeTypeFromFilename(name: string): string {
+  const ext = name.toLowerCase().split(".").pop() ?? "";
+  const map: Record<string, string> = {
+    mp3: "audio/mpeg",
+    m4a: "audio/mp4",
+    mp4: "audio/mp4",
+    aac: "audio/aac",
+    wav: "audio/wav",
+    ogg: "audio/ogg",
+    oga: "audio/ogg",
+    opus: "audio/ogg",
+    webm: "audio/webm",
+    flac: "audio/flac",
+    amr: "audio/amr",
+    "3gp": "audio/3gpp",
+    "3gpp": "audio/3gpp",
+    caf: "audio/x-caf",
+  };
+  return map[ext] ?? "audio/mpeg";
+}
+
 /** Turn an uploaded audio file into the same shape a recording produces. */
 export async function recordingFromFile(file: File): Promise<AudioRecording> {
   const url = URL.createObjectURL(file);
@@ -36,7 +59,10 @@ export async function recordingFromFile(file: File): Promise<AudioRecording> {
   return {
     blob: file,
     url,
-    mimeType: file.type || "audio/mpeg",
+    // Phone voice memos are often handed over with an empty `file.type`; fall
+    // back to guessing from the filename so the stored object gets a sensible
+    // extension (see audioExtensionFor).
+    mimeType: file.type || mimeTypeFromFilename(file.name),
     durationSec,
   };
 }

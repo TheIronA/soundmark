@@ -17,6 +17,35 @@ function formatDuration(sec: number): string {
   return `${m}:${r.toString().padStart(2, "0")}`;
 }
 
+// Extensions we treat as audio when the browser reports no (or a non-audio)
+// MIME type. Phone voice memos (iOS .m4a, Android .ogg/.opus/.amr, ...) are
+// routinely handed to a file input with an empty `file.type`, so we can't
+// rely on the MIME type alone to decide whether a picked file is a sound.
+const AUDIO_EXTENSIONS = [
+  ".mp3",
+  ".m4a",
+  ".aac",
+  ".wav",
+  ".ogg",
+  ".oga",
+  ".opus",
+  ".webm",
+  ".flac",
+  ".amr",
+  ".3gp",
+  ".3gpp",
+  ".caf",
+  ".mp4",
+];
+
+/** Whether a picked file looks like audio — by MIME type, or, when that's
+ * missing/unreliable (common for phone voice memos), by file extension. */
+function looksLikeAudio(file: File): boolean {
+  if (file.type.startsWith("audio/")) return true;
+  const name = file.name.toLowerCase();
+  return AUDIO_EXTENSIONS.some((ext) => name.endsWith(ext));
+}
+
 export function AudioRecorderControl({
   onChange,
 }: {
@@ -49,7 +78,7 @@ export function AudioRecorderControl({
   const handleFilePicked = async (file: File | null) => {
     if (!file) return;
     setUploadError(null);
-    if (!file.type.startsWith("audio/")) {
+    if (!looksLikeAudio(file)) {
       setUploadError("Please choose an audio file.");
       return;
     }
@@ -86,7 +115,10 @@ export function AudioRecorderControl({
       <input
         ref={uploadInputRef}
         type="file"
-        accept="audio/*"
+        // Not `audio/*`: some mobile file pickers grey out voice-memo files
+        // (e.g. .m4a/.opus) that arrive with an empty MIME type. We accept any
+        // file here and validate it's audio in handleFilePicked instead.
+        accept="audio/*,.m4a,.opus,.oga,.amr,.3gp,.3gpp,.caf,.aac,.flac"
         className="hidden"
         onChange={(e) => handleFilePicked(e.target.files?.[0] ?? null)}
       />
