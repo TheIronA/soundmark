@@ -16,6 +16,7 @@ import { Label } from "@/components/ui/label";
 import { AudioRecorderControl } from "@/components/audio-recorder-control";
 import { LocationPicker } from "@/components/location-picker";
 import { PhotoCropper } from "@/components/photo-cropper";
+import { PhotoCamera, cameraSupported } from "@/components/photo-camera";
 import { getCurrentPosition, readPhotoExif, formatLatLng } from "@/lib/geo";
 import {
   audioExtensionFor,
@@ -24,7 +25,7 @@ import {
 } from "@/lib/create-entry";
 import type { AudioRecording } from "@/lib/use-audio-recorder";
 
-type Step = "photo" | "crop" | "sound";
+type Step = "photo" | "camera" | "crop" | "sound";
 
 export function MomentCapture() {
   const router = useRouter();
@@ -33,6 +34,11 @@ export function MomentCapture() {
   const [step, setStep] = useState<Step>("photo");
   // The just-picked, uncropped file, shown in the cropper before it becomes `photo`.
   const [rawPhoto, setRawPhoto] = useState<File | null>(null);
+  // Where rawPhoto came from, so cancelling the crop returns to the right
+  // place (back to the viewfinder for a camera shot, not the start screen).
+  const [photoSource, setPhotoSource] = useState<"camera" | "library">(
+    "library",
+  );
   const [photo, setPhoto] = useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [recording, setRecording] = useState<AudioRecording | null>(null);
@@ -44,6 +50,11 @@ export function MomentCapture() {
   // The manual map picker is always available via the edit button, and
   // opens automatically when both EXIF and live geolocation fail.
   const [showLocationPicker, setShowLocationPicker] = useState(false);
+  // Set when live geolocation was tried and failed. A live camera shot has no
+  // EXIF to fall back on, so this is the difference between "located" and
+  // "this moment will be saved without a place" — worth saying out loud
+  // rather than silently dropping to the manual picker.
+  const [locationDenied, setLocationDenied] = useState(false);
 
   const [showDetails, setShowDetails] = useState(false);
   const [title, setTitle] = useState("");
@@ -53,6 +64,15 @@ export function MomentCapture() {
   const [status, setStatus] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  // Whether to offer the live camera. Resolved after mount rather than during
+  // render: the server has no `navigator`, so testing it inline would produce
+  // a hydration mismatch. Starts false, so the library picker is what renders
+  // if the camera turns out to be unavailable.
+  const [canUseCamera, setCanUseCamera] = useState(false);
+  useEffect(() => {
+    setCanUseCamera(cameraSupported());
+  }, []);
+
   // Live geolocation (+ manual-pin fallback), shared by both entry points
   // below since neither has photo EXIF to derive a location from.
   const locateLive = useCallback(async () => {
@@ -61,8 +81,12 @@ export function MomentCapture() {
       const pos = await getCurrentPosition();
       setLat(pos.lat);
       setLng(pos.lng);
+      setLocationDenied(false);
+      return true;
     } catch {
+      setLocationDenied(true);
       setShowLocationPicker(true);
+      return false;
     } finally {
       setLocating(false);
     }
@@ -73,6 +97,7 @@ export function MomentCapture() {
       if (!file) return;
       setError(null);
       setRawPhoto(file);
+      setPhotoSource("library");
       setShowLocationPicker(false);
 
       // Show the cropper first — the photo isn't "picked" for real until the
@@ -93,6 +118,22 @@ export function MomentCapture() {
     [locateLive],
   );
 
+  // A frame from the live camera. Unlike a library photo there's no EXIF to
+  // read — the shot is happening here and now, so live geolocation *is* the
+  // right answer for where it happened, and "now" for when.
+  const handleCameraCapture = useCallback(
+    async (file: File) => {
+      setError(null);
+      setRawPhoto(file);
+      setPhotoSource("camera");
+      setShowLocationPicker(false);
+      setRecordedAt(new Date().toISOString());
+      setStep("crop");
+      await locateLive();
+    },
+    [locateLive],
+  );
+
   const handleCropConfirm = useCallback((cropped: File) => {
     setPhoto(cropped);
     setPhotoPreview((prev) => {
@@ -105,8 +146,8 @@ export function MomentCapture() {
 
   const handleCropCancel = useCallback(() => {
     setRawPhoto(null);
-    setStep("photo");
-  }, []);
+    setStep(photoSource === "camera" ? "camera" : "photo");
+  }, [photoSource]);
 
   const handleSkipPhoto = useCallback(() => {
     setError(null);
@@ -175,35 +216,75 @@ export function MomentCapture() {
     }
   };
 
+  // The library picker keeps no `capture` attribute: a photo chosen there may
+  // be an older one, and its own EXIF GPS/time is the best record of where and
+  // when it was taken. The live camera is the other path — see
+  // handleCameraCapture. Mounted in every step that offers it, so the "choose
+  // from library" escape hatch works from the viewfinder too.
+  const libraryInput = (
+    <input
+      ref={fileInputRef}
+      type="file"
+      accept="image/*"
+      className="hidden"
+      onChange={(e) => handlePhotoPicked(e.target.files?.[0] ?? null)}
+    />
+  );
+
   // Step 1: the photo is the entry point. Big, single tap.
   if (step === "photo") {
     return (
       <div className="flex flex-col items-center gap-6 py-8">
-        {/* No `capture` attribute: choosing a photo from the library is the
-            default so the image's own EXIF GPS/time can be used. Live
-            geolocation is only a fallback when the photo has no GPS. */}
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="image/*"
-          className="hidden"
-          onChange={(e) => handlePhotoPicked(e.target.files?.[0] ?? null)}
-        />
+        {libraryInput}
         <button
           type="button"
-          onClick={() => fileInputRef.current?.click()}
+          onClick={() => (canUseCamera ? setStep("camera") : fileInputRef.current?.click())}
           className="flex aspect-square w-full max-w-sm flex-col items-center justify-center gap-4 rounded-neo border-3 border-dashed border-border text-muted-foreground transition-colors hover:border-accent hover:text-accent"
         >
           <Camera className="size-16" strokeWidth={1.5} />
           <span className="text-lg font-medium">Capture a moment</span>
-          <span className="text-sm">Take or choose a photo to begin</span>
+          <span className="text-sm">
+            {canUseCamera
+              ? "Tap to open the camera"
+              : "Choose a photo to begin"}
+          </span>
         </button>
+        {canUseCamera && (
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            className="text-sm text-muted-foreground underline-offset-4 hover:text-accent hover:underline"
+          >
+            Or choose a photo from your library
+          </button>
+        )}
         <button
           type="button"
           onClick={handleSkipPhoto}
           className="text-sm text-muted-foreground underline-offset-4 hover:text-accent hover:underline"
         >
           Or just record a sound, no photo
+        </button>
+      </div>
+    );
+  }
+
+  // Step 1a: the live viewfinder. A shot taken here is happening now, so its
+  // location comes from live geolocation rather than EXIF.
+  if (step === "camera") {
+    return (
+      <div className="flex flex-col items-center gap-4 py-8">
+        {libraryInput}
+        <PhotoCamera
+          onCancel={() => setStep("photo")}
+          onCapture={handleCameraCapture}
+        />
+        <button
+          type="button"
+          onClick={() => fileInputRef.current?.click()}
+          className="text-sm text-muted-foreground underline-offset-4 hover:text-accent hover:underline"
+        >
+          Or choose a photo from your library
         </button>
       </div>
     );
@@ -254,6 +335,26 @@ export function MomentCapture() {
             </>
           )}
         </div>
+        {/* Live geolocation failed and there's no EXIF to fall back on, so
+            this moment would be saved with no place at all. Say so, and offer
+            the retry before falling back to pinning it by hand. */}
+        {locationDenied && lat === null && !locating && (
+          <div className="flex w-full max-w-sm flex-col items-center gap-2 rounded-neo border-3 border-warning/40 bg-warning/10 p-3 text-center">
+            <p className="text-xs text-muted-foreground">
+              This moment has no location yet. Enable location access, or pin
+              it on the map below.
+            </p>
+            <Button
+              type="button"
+              size="sm"
+              variant="secondary"
+              onClick={() => void locateLive()}
+            >
+              <MapPin className="mr-2 size-4" /> Try location again
+            </Button>
+          </div>
+        )}
+
         {showLocationPicker && !locating && (
           <div className="flex w-full max-w-sm flex-col gap-2">
             <p className="text-xs text-muted-foreground">
