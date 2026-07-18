@@ -62,6 +62,8 @@ async function MapContent() {
         : null,
       fullPhotoUrl: photo ? urls[photo.storage_path] ?? null : null,
       audioUrl: audio ? urls[audio.storage_path] ?? null : null,
+      fullPhotoPath: photo?.storage_path ?? null,
+      audioPath: audio?.storage_path ?? null,
     };
   });
 

@@ -67,6 +67,8 @@ async function TimelineContent() {
         ? urls[photo.thumbnail_path ?? photo.storage_path] ?? null
         : null,
       audioUrl: audio ? urls[audio.storage_path] ?? null : null,
+      photoPath: photo?.thumbnail_path ?? photo?.storage_path ?? null,
+      audioPath: audio?.storage_path ?? null,
     };
   });
 
@@ -117,6 +119,8 @@ async function TimelineContent() {
               <MomentPhoto
                 photoUrl={photoUrl}
                 audioUrl={audioUrl}
+                photoPath={photo?.thumbnail_path ?? photo?.storage_path ?? null}
+                audioPath={audio?.storage_path ?? null}
                 alt={entry.title || "Moment"}
                 className="aspect-square w-full"
                 rounded="rounded-neo"

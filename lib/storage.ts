@@ -50,13 +50,22 @@ export async function uploadObject(
 }
 
 /**
+ * How long a signed media URL stays valid. These URLs are baked into
+ * server-rendered pages, so the window has to comfortably outlast a session
+ * spent with the tab open — an hour was short enough that idle tabs came back
+ * to 403ing images and unplayable sounds. Clients can also re-sign on demand
+ * via the refresh route when a URL does lapse.
+ */
+export const SIGNED_URL_TTL_SEC = 60 * 60 * 12; // 12 hours
+
+/**
  * Resolve a stored path to a temporary, authenticated URL the browser can load.
  * The bucket is private, so we use signed URLs rather than public ones.
  */
 export async function getObjectUrl(
   supabase: SupabaseClient,
   path: string,
-  expiresInSec = 60 * 60,
+  expiresInSec = SIGNED_URL_TTL_SEC,
 ): Promise<string> {
   const { data, error } = await supabase.storage
     .from(MEDIA_BUCKET)
@@ -65,11 +74,28 @@ export async function getObjectUrl(
   return data.signedUrl;
 }
 
+/**
+ * Re-sign a single stored path from the browser. Used to recover when a URL
+ * baked into a long-open page has expired: the client still holds the
+ * backend-agnostic path, so it can mint a fresh URL without a page reload.
+ * Returns null if re-signing fails (e.g. the session lapsed too).
+ */
+export async function refreshObjectUrl(
+  supabase: SupabaseClient,
+  path: string,
+): Promise<string | null> {
+  try {
+    return await getObjectUrl(supabase, path);
+  } catch {
+    return null;
+  }
+}
+
 /** Batch-resolve many paths to signed URLs, keyed by path. */
 export async function getObjectUrls(
   supabase: SupabaseClient,
   paths: string[],
-  expiresInSec = 60 * 60,
+  expiresInSec = SIGNED_URL_TTL_SEC,
 ): Promise<Record<string, string>> {
   const unique = [...new Set(paths.filter(Boolean))];
   if (unique.length === 0) return {};

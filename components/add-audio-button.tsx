@@ -11,8 +11,8 @@ import { Check, Loader2, Mic, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { AudioRecorderControl } from "@/components/audio-recorder-control";
 import { createClient } from "@/lib/supabase/client";
-import { buildMediaPath, uploadObject } from "@/lib/storage";
-import { audioExtensionFor } from "@/lib/create-entry";
+import { MEDIA_BUCKET, buildMediaPath, uploadObject } from "@/lib/storage";
+import { assertWithinSizeLimit, audioExtensionFor } from "@/lib/create-entry";
 import { uniqueId } from "@/lib/utils";
 import type { AudioRecording } from "@/lib/use-audio-recorder";
 
@@ -37,6 +37,12 @@ export function AddAudioButton({ entryId }: { entryId: string }) {
         throw new Error("You must be signed in to add a sound.");
       }
 
+      assertWithinSizeLimit({
+        type: "audio",
+        data: recording.blob,
+        filename: "sound",
+      });
+
       const filename = `${uniqueId()}-sound.${audioExtensionFor(recording.mimeType)}`;
       const path = buildMediaPath(user.id, entryId, filename);
       await uploadObject(supabase, path, recording.blob);
@@ -49,7 +55,16 @@ export function AddAudioButton({ entryId }: { entryId: string }) {
         duration_sec: recording.durationSec ?? null,
         size_bytes: recording.blob.size,
       });
-      if (insertError) throw insertError;
+      if (insertError) {
+        // Don't leave the just-uploaded object behind with nothing pointing
+        // at it; the row is what makes it reachable.
+        try {
+          await supabase.storage.from(MEDIA_BUCKET).remove([path]);
+        } catch {
+          // Best-effort; the insert error below is what matters.
+        }
+        throw insertError;
+      }
 
       setOpen(false);
       setRecording(null);

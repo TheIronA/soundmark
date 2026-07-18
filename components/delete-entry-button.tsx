@@ -19,7 +19,8 @@ export function DeleteEntryButton({ entryId }: { entryId: string }) {
     setDeleting(true);
     const supabase = createClient();
 
-    // Remove storage objects first (DB cascade would orphan them otherwise).
+    // Collect the object paths before the rows are gone — deleting the entry
+    // cascades the media rows away, taking the paths with them.
     const { data: media } = await supabase
       .from("media")
       .select("storage_path, thumbnail_path")
@@ -27,17 +28,27 @@ export function DeleteEntryButton({ entryId }: { entryId: string }) {
     const paths = (media ?? [])
       .flatMap((m) => [m.storage_path, m.thumbnail_path])
       .filter(Boolean) as string[];
-    if (paths.length > 0) {
-      await supabase.storage.from(MEDIA_BUCKET).remove(paths);
-    }
 
-    // Deleting the entry cascades to its media rows.
+    // Delete the row first. Of the two possible half-states, an orphaned
+    // object (invisible, reclaimable later) is strictly better than a live
+    // entry whose media 404s — so the DB delete has to be the step that
+    // decides whether the moment is gone.
     const { error } = await supabase.from("entries").delete().eq("id", entryId);
     if (error) {
       alert(error.message);
       setDeleting(false);
       return;
     }
+
+    // Best-effort cleanup; a failure here only leaves unreferenced bytes.
+    if (paths.length > 0) {
+      try {
+        await supabase.storage.from(MEDIA_BUCKET).remove(paths);
+      } catch {
+        // The entry is already gone from the user's view; nothing to surface.
+      }
+    }
+
     router.push("/app/timeline");
     router.refresh();
   };

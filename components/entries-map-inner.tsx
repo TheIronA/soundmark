@@ -19,6 +19,9 @@ export interface MapEntry {
    * small, heavily-compressed thumbnail meant only for the pin popup). */
   fullPhotoUrl: string | null;
   audioUrl: string | null;
+  /** Storage paths, so the lightbox can recover from an expired signed URL. */
+  fullPhotoPath: string | null;
+  audioPath: string | null;
 }
 
 // Free, keyless OpenStreetMap raster tiles.
@@ -240,6 +243,8 @@ export function EntriesMap({ entries }: { entries: MapEntry[] }) {
             <MomentPhoto
               photoUrl={enlarged.fullPhotoUrl ?? enlarged.photoUrl}
               audioUrl={enlarged.audioUrl}
+              photoPath={enlarged.fullPhotoPath}
+              audioPath={enlarged.audioPath}
               alt={enlarged.title || "Moment"}
               className="aspect-square w-full"
             />

@@ -8,8 +8,14 @@
 // this file stays backend-agnostic. The DB schema is still one-entry-to-many-
 // media, but the product treats a moment as a single photo + single sound.
 
+import type { SupabaseClient } from "@supabase/supabase-js";
+
 import { createClient } from "@/lib/supabase/client";
-import { buildMediaPath, uploadObject } from "@/lib/storage";
+import {
+  MEDIA_BUCKET,
+  buildMediaPath,
+  uploadObject,
+} from "@/lib/storage";
 import { generatePhotoThumbnail } from "@/lib/thumbnail";
 import type { Entry, MediaType } from "@/lib/types";
 import { uniqueId } from "@/lib/utils";
@@ -45,9 +51,61 @@ export function audioExtensionFor(mimeType: string): string {
   return "webm";
 }
 
+/** Upload size ceilings, enforced client-side before any bytes are sent so a
+ * huge file fails fast and cheaply rather than part-way through a save. */
+export const MAX_PHOTO_BYTES = 25 * 1024 * 1024; // 25 MB
+export const MAX_AUDIO_BYTES = 50 * 1024 * 1024; // 50 MB
+
+function formatMb(bytes: number): string {
+  return `${Math.round(bytes / (1024 * 1024))} MB`;
+}
+
+/** Throw a user-facing error if a media item exceeds its size ceiling. */
+export function assertWithinSizeLimit(media: NewMediaInput): void {
+  const limit = media.type === "photo" ? MAX_PHOTO_BYTES : MAX_AUDIO_BYTES;
+  if (media.data.size > limit) {
+    const what = media.type === "photo" ? "photo" : "sound";
+    throw new Error(
+      `That ${what} is too large (${formatMb(media.data.size)}). The limit is ${formatMb(limit)}.`,
+    );
+  }
+}
+
+/**
+ * Undo a partially-completed save: remove any objects already uploaded, then
+ * delete the entry row (which cascades to any media rows that did land).
+ *
+ * Best-effort by design — it runs while another error is already propagating,
+ * so a failure here must not mask the original cause.
+ */
+async function rollbackMoment(
+  supabase: SupabaseClient,
+  entryId: string,
+  uploadedPaths: string[],
+): Promise<void> {
+  try {
+    if (uploadedPaths.length > 0) {
+      await supabase.storage.from(MEDIA_BUCKET).remove(uploadedPaths);
+    }
+  } catch {
+    // Ignore: the entry delete below is the more important cleanup.
+  }
+  try {
+    await supabase.from("entries").delete().eq("id", entryId);
+  } catch {
+    // Ignore: surfacing the original failure matters more.
+  }
+}
+
 /**
  * Create a moment: an entry with a photo and/or a sound (at least one of the
  * two is required). Returns the created entry.
+ *
+ * The entry row must be inserted first (its id namespaces the object keys), so
+ * this is not a single transaction. Everything after that insert runs under a
+ * rollback: if any upload or the media insert fails, the uploaded objects and
+ * the entry row are removed so a failed save never leaves a media-less "ghost"
+ * moment behind.
  */
 export async function createMoment(
   input: NewEntryInput,
@@ -57,6 +115,10 @@ export async function createMoment(
   if (!photo && !audio) {
     throw new Error("A moment needs a photo or a sound.");
   }
+
+  // Check sizes up front, before the entry row exists — nothing to roll back.
+  if (photo) assertWithinSizeLimit(photo);
+  if (audio) assertWithinSizeLimit(audio);
 
   const supabase = createClient();
 
@@ -86,64 +148,76 @@ export async function createMoment(
     throw new Error(entryError?.message ?? "Failed to save moment.");
   }
 
-  const mediaRows: Array<Record<string, unknown>> = [];
+  // Everything below is rolled back as a unit if any step fails.
+  const uploadedPaths: string[] = [];
+  try {
+    const mediaRows: Array<Record<string, unknown>> = [];
 
-  // 2) Upload the photo + a downscaled thumbnail, if there is one.
-  if (photo) {
-    const prefix = uniqueId();
-    const photoPath = buildMediaPath(
-      user.id,
-      entry.id,
-      `${prefix}-${photo.filename}`,
-    );
-    await uploadObject(supabase, photoPath, photo.data);
+    // 2) Upload the photo + a downscaled thumbnail, if there is one.
+    if (photo) {
+      const prefix = uniqueId();
+      const photoPath = buildMediaPath(
+        user.id,
+        entry.id,
+        `${prefix}-${photo.filename}`,
+      );
+      await uploadObject(supabase, photoPath, photo.data);
+      uploadedPaths.push(photoPath);
 
-    let thumbnailPath: string | null = null;
-    if (photo.data instanceof File) {
-      const thumb = await generatePhotoThumbnail(photo.data);
-      if (thumb) {
-        thumbnailPath = buildMediaPath(
-          user.id,
-          entry.id,
-          `${prefix}-thumb.jpg`,
-        );
-        await uploadObject(supabase, thumbnailPath, thumb.blob, "image/jpeg");
+      let thumbnailPath: string | null = null;
+      if (photo.data instanceof File) {
+        const thumb = await generatePhotoThumbnail(photo.data);
+        if (thumb) {
+          thumbnailPath = buildMediaPath(
+            user.id,
+            entry.id,
+            `${prefix}-thumb.jpg`,
+          );
+          await uploadObject(supabase, thumbnailPath, thumb.blob, "image/jpeg");
+          uploadedPaths.push(thumbnailPath);
+        }
       }
+
+      mediaRows.push({
+        entry_id: entry.id,
+        user_id: user.id,
+        media_type: "photo",
+        storage_path: photoPath,
+        thumbnail_path: thumbnailPath,
+        size_bytes: photo.data.size,
+      });
     }
 
-    mediaRows.push({
-      entry_id: entry.id,
-      user_id: user.id,
-      media_type: "photo",
-      storage_path: photoPath,
-      thumbnail_path: thumbnailPath,
-      size_bytes: photo.data.size,
-    });
-  }
+    // 3) Upload the sound, if one was recorded.
+    if (audio) {
+      const prefix = uniqueId();
+      const audioPath = buildMediaPath(
+        user.id,
+        entry.id,
+        `${prefix}-${audio.filename}`,
+      );
+      await uploadObject(supabase, audioPath, audio.data);
+      uploadedPaths.push(audioPath);
+      mediaRows.push({
+        entry_id: entry.id,
+        user_id: user.id,
+        media_type: "audio",
+        storage_path: audioPath,
+        duration_sec: audio.durationSec ?? null,
+        size_bytes: audio.data.size,
+      });
+    }
 
-  // 3) Upload the sound, if one was recorded.
-  if (audio) {
-    const prefix = uniqueId();
-    const audioPath = buildMediaPath(
-      user.id,
-      entry.id,
-      `${prefix}-${audio.filename}`,
-    );
-    await uploadObject(supabase, audioPath, audio.data);
-    mediaRows.push({
-      entry_id: entry.id,
-      user_id: user.id,
-      media_type: "audio",
-      storage_path: audioPath,
-      duration_sec: audio.durationSec ?? null,
-      size_bytes: audio.data.size,
-    });
-  }
-
-  // 4) Insert media rows.
-  const { error: mediaError } = await supabase.from("media").insert(mediaRows);
-  if (mediaError) {
-    throw new Error(mediaError.message);
+    // 4) Insert media rows.
+    const { error: mediaError } = await supabase
+      .from("media")
+      .insert(mediaRows);
+    if (mediaError) {
+      throw new Error(mediaError.message);
+    }
+  } catch (e) {
+    await rollbackMoment(supabase, entry.id, uploadedPaths);
+    throw e instanceof Error ? e : new Error("Failed to save moment.");
   }
 
   return entry as Entry;

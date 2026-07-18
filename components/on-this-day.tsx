@@ -9,6 +9,9 @@ export interface OnThisDayItem {
   yearsAgo: number;
   photoUrl: string | null;
   audioUrl: string | null;
+  /** Storage paths, so playback can recover from an expired signed URL. */
+  photoPath: string | null;
+  audioPath: string | null;
 }
 
 /**
@@ -34,6 +37,8 @@ export function OnThisDay({ items }: { items: OnThisDayItem[] }) {
             <MomentPhoto
               photoUrl={item.photoUrl}
               audioUrl={item.audioUrl}
+              photoPath={item.photoPath}
+              audioPath={item.audioPath}
               alt={item.title || "A past moment"}
               className="aspect-square w-full"
               rounded="rounded-neo"

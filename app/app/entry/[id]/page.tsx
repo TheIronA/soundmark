@@ -73,6 +73,8 @@ async function EntryDetail({
       <MomentPhoto
         photoUrl={photoUrl}
         audioUrl={audioUrl}
+        photoPath={photo?.storage_path ?? null}
+        audioPath={audio?.storage_path ?? null}
         alt={entry.title || "Moment"}
         className="aspect-square w-full"
         rounded="rounded-neo"
